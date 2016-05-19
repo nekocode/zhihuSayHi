@@ -8,18 +8,7 @@ import json
 import base64
 import asyncio
 import websockets
-
-
-class TokenException(Exception):
-    pass
-
-
-class PingingException(Exception):
-    pass
-
-
-class ListeningException(Exception):
-    pass
+import logging
 
 
 class ZhihuSayHi:
@@ -81,7 +70,7 @@ class ZhihuSayHi:
 
         self.token = self.decode_json(req.content)
         self.headers['Authorization'] = 'Bearer ' + self.token['access_token']
-        print("Login Success.")
+        logging.info("Login Success.")
 
     def refresh_token(self):
         grant_type = 'refresh_token'
@@ -99,7 +88,7 @@ class ZhihuSayHi:
 
         self.token = self.decode_json(req.content)
         self.headers['Authorization'] = 'Bearer ' + self.token['access_token']
-        print("Refresh Token Success.")
+        logging.info("Refresh Token Success.")
 
     def get_captcha(self):
         req = requests.get('https://api.zhihu.com/captcha', headers=self.headers)
@@ -149,7 +138,7 @@ class ZhihuSayHi:
         for fol in self.new_followers:
             print_str += fol['name'] + ', '
         print_str += ']'
-        print('New Followers:' + print_str)
+        logging.info('New Followers:' + print_str)
 
     async def send_msg(self, receiver_id, content):
         req = requests.post('https://api.zhihu.com/messages', data={
@@ -159,12 +148,12 @@ class ZhihuSayHi:
         self.check_token(req)
 
         msg = self.decode_json(req.content)
-        print('Send Msg To [%s]: %s' % (msg['receiver']['name'], content))
+        logging.info('Send Msg To [%s]: %s' % (msg['receiver']['name'], content))
 
     async def sayhi_to_followers(self):
         for fol in self.new_followers:
             await self.send_msg(fol['id'],
-                                'Hi, %s! Thanks for your following~ \n\n'
+                                'Hi, %s! Thanks for your following~ \n'
                                 '[This message sent from https://github.com/nekocode/zhihuSayHi]'
                                 % fol['name'])
 
@@ -178,7 +167,7 @@ class ZhihuSayHi:
 
                     # Pinging task
                     async def ping():
-                        print("Start Pinging...")
+                        logging.info("Start Pinging...")
                         ping_retry_count = 0
 
                         while True:
@@ -191,14 +180,14 @@ class ZhihuSayHi:
 
                                 # Retry over 5 times
                                 if ping_retry_count > 5:
-                                    print("Pinging Error: " + str(e1))
-                                    raise PingingException()
+                                    logging.error("Pinging Error: " + str(e1))
+                                    raise e1
 
                     # Add pinging task to event loop
                     self.looper.create_task(ping())
 
                     # Listening task
-                    print("Start Listening...")
+                    logging.info("Start Listening...")
                     recv_retry_count = 0
                     while True:
                         try:
@@ -209,7 +198,12 @@ class ZhihuSayHi:
 
                         except TokenException:
                             # Token is invaild, refresh it
-                            self.refresh_token()
+                            try:
+                                self.refresh_token()
+                            except Exception as e3:
+                                logging.error("Refresh Token Error: " + str(e3))
+                                raise e3
+
                             raise TokenException()
 
                         except Exception as e2:
@@ -217,8 +211,8 @@ class ZhihuSayHi:
 
                             # Retry over 3 times
                             if recv_retry_count > 3:
-                                print("Listening Error: " + str(e2))
-                                raise ListeningException()
+                                logging.error("Listening Error: " + str(e2))
+                                raise e2
 
             except TokenException:
                 # Sleep 5 secends before the next connection
@@ -239,6 +233,25 @@ class ZhihuSayHi:
         self.looper.run_until_complete(self.sayhi_to_followers())
         self.looper.run_until_complete(self.listen_push())
         self.looper.stop()
+
+
+class TokenException(Exception):
+    pass
+
+
+# Logging config
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y/%b/%d %H:%M:%S',
+    filename='sayhi.log',
+    filemode='w')
+
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter('%(message)s')
+console.setFormatter(formatter)
+logging.getLogger('').addHandler(console)
 
 
 if __name__ == '__main__':
