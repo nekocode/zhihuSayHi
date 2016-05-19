@@ -10,6 +10,18 @@ import asyncio
 import websockets
 
 
+class TokenException(Exception):
+    pass
+
+
+class PingingException(Exception):
+    pass
+
+
+class ListeningException(Exception):
+    pass
+
+
 class ZhihuSayHi:
     STATUS_CODE_UNAUTHORIZED = 401
     CLIENT_ID = 'ee61ede15113741dca8bca59479ce6'
@@ -50,7 +62,7 @@ class ZhihuSayHi:
 
     def check_token(self, req):
         if req.status_code == self.STATUS_CODE_UNAUTHORIZED:
-            self.refresh_token()
+            raise TokenException()
 
     def login(self, email, pwd):
         grant_type = 'password'
@@ -158,38 +170,63 @@ class ZhihuSayHi:
 
         self.new_followers.clear()
 
-    async def listener_push(self):
+    async def listen_push(self):
         while True:
             try:
                 async with websockets.connect('ws://apilive.zhihu.com/apilive',
                                               extra_headers={'Cookie': self.get_cookit_str()}) as websocket:
-                    async def ping():
-                        while True:
-                            await asyncio.sleep(10)
-                            await websocket.ping()
-                            print('Ping Success.')
 
+                    # Pinging task
+                    async def ping():
+                        print("Start Pinging...")
+                        ping_retry_count = 0
+
+                        while True:
+                            try:
+                                await asyncio.sleep(10)
+                                await websocket.ping()
+
+                            except Exception as e1:
+                                ping_retry_count += 1
+
+                                # Retry over 5 times
+                                if ping_retry_count > 5:
+                                    print("Pinging Error: " + str(e1))
+                                    raise PingingException()
+
+                    # Add pinging task to event loop
                     self.looper.create_task(ping())
 
+                    # Listening task
+                    print("Start Listening...")
+                    recv_retry_count = 0
                     while True:
-                        push_msg = self.decode_json(await websocket.recv())
-                        if push_msg['follow_has_new']:
-                            await self.get_followers()
-                            await self.sayhi_to_followers()
+                        try:
+                            push_msg = self.decode_json(await websocket.recv())
+                            if push_msg['follow_has_new']:
+                                await self.get_followers()
+                                await self.sayhi_to_followers()
 
-            except Exception as e:
-                try:
-                    # Try to refresh token
-                    self.refresh_token()
+                        except TokenException:
+                            # Token is invaild, refresh it
+                            self.refresh_token()
+                            raise TokenException()
 
-                except:
-                    # Refresh token failed
-                    print('Listener Push Error:' + str(e))
-                    self.looper.stop()
-                    return
+                        except Exception as e2:
+                            recv_retry_count += 1
 
-                # Sleep 10 secends before the next connection
-                await asyncio.sleep(10)
+                            # Retry over 3 times
+                            if recv_retry_count > 3:
+                                print("Listening Error: " + str(e2))
+                                raise ListeningException()
+
+            except TokenException:
+                # Sleep 5 secends before the next connection
+                await asyncio.sleep(5)
+
+            except Exception:
+                self.looper.stop()
+                return
 
     def start(self):
         self.looper = asyncio.get_event_loop()
@@ -200,7 +237,7 @@ class ZhihuSayHi:
 
         self.looper.run_until_complete(self.get_followers())
         self.looper.run_until_complete(self.sayhi_to_followers())
-        self.looper.run_until_complete(self.listener_push())
+        self.looper.run_until_complete(self.listen_push())
         self.looper.stop()
 
 
