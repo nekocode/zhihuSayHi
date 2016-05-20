@@ -160,6 +160,7 @@ class ZhihuSayHi:
         self.new_followers.clear()
 
     async def listen_push(self):
+        listen_retry_count = 0
         while True:
             try:
                 async with websockets.connect('ws://apilive.zhihu.com/apilive',
@@ -219,8 +220,13 @@ class ZhihuSayHi:
                 await asyncio.sleep(5)
 
             except Exception:
-                self.looper.stop()
-                return
+                logging.info("Reconnecting...")
+                listen_retry_count += 1
+                await asyncio.sleep(10)
+
+                if listen_retry_count > 5:
+                    self.looper.stop()
+                    return
 
     def start(self):
         self.looper = asyncio.get_event_loop()
