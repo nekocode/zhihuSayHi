@@ -165,6 +165,7 @@ class ZhihuSayHi:
             try:
                 async with websockets.connect('ws://apilive.zhihu.com/apilive',
                                               extra_headers={'Cookie': self.get_cookit_str()}) as websocket:
+                    listen_retry_count = 0  # Reset
 
                     # Pinging task
                     async def ping():
@@ -175,6 +176,7 @@ class ZhihuSayHi:
                             try:
                                 await asyncio.sleep(10)
                                 await websocket.ping()
+                                ping_retry_count = 0  # Reset
 
                             except Exception as e1:
                                 ping_retry_count += 1
@@ -193,6 +195,7 @@ class ZhihuSayHi:
                     while True:
                         try:
                             push_msg = self.decode_json(await websocket.recv())
+                            recv_retry_count = 0  # Reset
                             if push_msg['follow_has_new']:
                                 await self.get_followers()
                                 await self.sayhi_to_followers()
