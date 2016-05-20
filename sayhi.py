@@ -249,18 +249,23 @@ class TokenException(Exception):
 
 
 # Logging config
+fmt = '%(asctime)s [%(levelname)s] %(message)s'
+datefmt = '%Y-%m-%d,%H:%M:%S'
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%Y/%b/%d %H:%M:%S',
+    format=fmt,
+    datefmt=datefmt,
     filename='sayhi.log',
     filemode='w')
 
 console = logging.StreamHandler()
 console.setLevel(logging.INFO)
-formatter = logging.Formatter('%(message)s')
+formatter = logging.Formatter(fmt, datefmt)
 console.setFormatter(formatter)
 logging.getLogger('').addHandler(console)
+
+logging.getLogger('requests').setLevel(logging.CRITICAL)
 
 
 if __name__ == '__main__':
