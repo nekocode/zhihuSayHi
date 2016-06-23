@@ -13,19 +13,24 @@ import logging
 
 class ZhihuSayHi:
     STATUS_CODE_UNAUTHORIZED = 401
-    CLIENT_ID = 'ee61ede15113741dca8bca59479ce6'
-    CLIENT_SECRET = b'8b735aeaecebc6aaf1f0ece3afdc8b'
+    CLIENT_ID = '8d5227e0aaaa4797a763ac64e0c3b8'
+    CLIENT_SECRET = b'ecbefbf6b17e47ecb9035107866380'
     SOURCE = 'com.zhihu.android'
     REFRESH_TOKEN_TIME = 60 * 1
 
     def __init__(self):
         self.looper = None
         self.headers = {
-            'Authorization': 'oauth ee61ede15113741dca8bca59479ce6',
-            'Cache-Control': 'no-cache'
+            'Authorization': 'oauth 8d5227e0aaaa4797a763ac64e0c3b8',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) '
+                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36',
+            'Host': 'api.zhihu.com',
         }
 
         self.cookies = None
+        self.show_captcha = True
         self.token = {
             'user_id': 0,
             'uid': '',
@@ -55,7 +60,7 @@ class ZhihuSayHi:
 
     def login(self, email, pwd):
         grant_type = 'password'
-        ts = int(time.time() * 1000)
+        ts = int(time.time())
         signature = self.sign(grant_type + self.CLIENT_ID + self.SOURCE + str(ts), self.CLIENT_SECRET)
 
         req = requests.post("https://api.zhihu.com/sign_in", data={
@@ -74,7 +79,7 @@ class ZhihuSayHi:
 
     def refresh_token(self):
         grant_type = 'refresh_token'
-        ts = int(time.time() * 1000)
+        ts = int(time.time())
         signature = self.sign(grant_type + self.CLIENT_ID + self.SOURCE + str(ts), self.CLIENT_SECRET)
 
         req = requests.post("https://api.zhihu.com/sign_in", data={
@@ -94,8 +99,9 @@ class ZhihuSayHi:
         req = requests.get('https://api.zhihu.com/captcha', headers=self.headers)
         self.cookies = req.cookies
         rsp = self.decode_json(req.content)
+        self.show_captcha = rsp['show_captcha']
 
-        if rsp['show_captcha']:
+        if self.show_captcha:
             rsp = self.decode_json(
                 requests.put('https://api.zhihu.com/captcha', headers=self.headers, cookies=self.cookies).content
             )
@@ -235,7 +241,9 @@ class ZhihuSayHi:
         self.looper = asyncio.get_event_loop()
 
         self.get_captcha()
-        self.input_captcha(input('Captcha:'))
+        if self.show_captcha:
+            self.input_captcha(input('Captcha:'))
+
         self.login(input('Email:'), input('Password:'))
 
         self.looper.run_until_complete(self.get_followers())
