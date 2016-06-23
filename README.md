@@ -5,7 +5,7 @@ This script help you to automatically say hi to your new follower in **[zhihu.co
 ![](art/screenshot.png)
 
 ### Usage
-1. Run the **`sayhi.py`** by python3
+1. Run the **`sayhi.py`** by python3.5
 2. If necessary, it will remind you to enter a captcha (It will generated a `captcha.png` in the project root path)
 3. Input your email and password
 4. Have fun~
