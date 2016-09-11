@@ -52,7 +52,13 @@ class ZhihuSayHi:
         return json.loads(bytes.decode(response))
 
     def get_cookit_str(self):
-        return 'z_c0=' + self.token['cookie']['z_c0']
+        ck = self.token['cookie']
+        if 'z_c0' in ck:
+            return 'z_c0=' + ck['z_c0']
+        elif 'q_c0' in ck:
+            return 'q_c0=' + ck['q_c0']
+        else:
+            return ''
 
     def check_token(self, req):
         if req.status_code == self.STATUS_CODE_UNAUTHORIZED:
