@@ -166,7 +166,7 @@ class ZhihuSayHi:
         for fol in self.new_followers:
             await self.send_msg(fol['id'],
                                 'Hi, %s! Thanks for your following~ \n'
-                                '[This message sent from https://github.com/nekocode/zhihuSayHi]'
+                                '[This message is sent by https://github.com/nekocode/zhihuSayHi]'
                                 % fol['name'])
 
         self.new_followers.clear()
