@@ -7,7 +7,6 @@ from hashlib import sha1
 import json
 import base64
 import asyncio
-import websockets
 import logging
 
 
@@ -171,75 +170,28 @@ class ZhihuSayHi:
 
         self.new_followers.clear()
 
-    async def listen_push(self):
-        listen_retry_count = 0
+    async def timing_check_task(self):
+        retry_count = 0
         while True:
             try:
-                async with websockets.connect('ws://apilive.zhihu.com/apilive',
-                                              extra_headers={'Cookie': self.get_cookit_str()}) as websocket:
-                    listen_retry_count = 0  # Reset
-
-                    # Pinging task
-                    async def ping():
-                        logging.info("Start Pinging...")
-                        ping_retry_count = 0
-
-                        while True:
-                            try:
-                                await asyncio.sleep(10)
-                                await websocket.ping()
-                                ping_retry_count = 0  # Reset
-
-                            except Exception as e1:
-                                ping_retry_count += 1
-
-                                # Retry over 5 times
-                                if ping_retry_count > 5:
-                                    logging.error("Pinging Error: " + str(e1))
-                                    raise e1
-
-                    # Add pinging task to event loop
-                    self.looper.create_task(ping())
-
-                    # Listening task
-                    logging.info("Start Listening...")
-                    recv_retry_count = 0
-                    while True:
-                        try:
-                            push_msg = self.decode_json(await websocket.recv())
-                            recv_retry_count = 0  # Reset
-                            if push_msg['follow_has_new']:
-                                await self.get_followers()
-                                await self.sayhi_to_followers()
-
-                        except TokenException:
-                            # Token is invaild, refresh it
-                            try:
-                                self.refresh_token()
-                            except Exception as e3:
-                                logging.error("Refresh Token Error: " + str(e3))
-                                raise e3
-
-                            raise TokenException()
-
-                        except Exception as e2:
-                            recv_retry_count += 1
-
-                            # Retry over 3 times
-                            if recv_retry_count > 3:
-                                logging.error("Listening Error: " + str(e2))
-                                raise e2
+                await asyncio.sleep(5)
+                await self.get_followers()
+                await self.sayhi_to_followers()
 
             except TokenException:
-                # Sleep 5 secends before the next connection
-                await asyncio.sleep(5)
+                # Token is invaild, refresh it
+                try:
+                    self.refresh_token()
+                except Exception as e:
+                    logging.error("Refresh Token Error: " + str(e))
+                    raise e
 
             except Exception:
-                logging.info("Reconnecting...")
-                listen_retry_count += 1
+                logging.info("Restart timing-check...")
+                retry_count += 1
                 await asyncio.sleep(10)
 
-                if listen_retry_count > 5:
+                if retry_count > 5:
                     self.looper.stop()
                     return
 
@@ -254,7 +206,7 @@ class ZhihuSayHi:
 
         self.looper.run_until_complete(self.get_followers())
         self.looper.run_until_complete(self.sayhi_to_followers())
-        self.looper.run_until_complete(self.listen_push())
+        self.looper.run_until_complete(self.timing_check_task())
         self.looper.stop()
 
 
