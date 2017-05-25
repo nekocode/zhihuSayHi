@@ -1,5 +1,6 @@
 # zhihuSayHi
-This script help you to automatically say hi to your new follower in **[zhihu.com](https://www.zhihu.com/)**.
+~This script help you to automatically say hi to your new follower in **[zhihu.com](https://www.zhihu.com/)**.~  
+**(This project is unmaintained now for personal reason.)**
 
 ### Screenshot
 ![](art/screenshot.png)
